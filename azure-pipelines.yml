@@ -17,6 +17,7 @@ variables:
 
 stages:
 - stage:
+  name: 'Build' 
   displayName: 'Build'
   jobs:
      - job: 
