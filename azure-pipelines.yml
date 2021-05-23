@@ -11,6 +11,9 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
+  projectName: 'WeatherService'
+  websiteName: 'WeatherService'
+  appPoolName: 'WeatherService'
 
 stages:
 - stage:
@@ -49,3 +52,55 @@ stages:
 
         - publish: '$(Build.ArtifactStagingDirectory)'
           artifact: drop
+
+- stage:
+  displayName: 'Dev'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+   - deployment: Dev
+     displayName: Dev
+     environment: 
+       name: 'Dev'    
+       resourceType: VirtualMachine
+       tags: 
+     variables:
+     - name: websitePhysicalPath
+       value: '%SystemDrive%\inetpub\wwwroot\$(websiteName)'
+
+     strategy:
+      runOnce:
+        deploy:
+          steps: 
+          - task: IISWebAppManagementOnMachineGroup@0
+            inputs:            
+              IISDeploymentType: 'IISWebsite'
+              ActionIISWebsite: 'CreateOrUpdateWebsite'
+              WebsiteName: '$(websiteName)'
+              WebsitePhysicalPath: '$(websitePhysicalPath)'
+              WebsitePhysicalPathAuth: 'WebsiteUserPassThrough'
+              CreateOrUpdateAppPoolForWebsite: true
+              AppPoolNameForWebsite: '$(appPoolName)'
+              DotNetVersionForWebsite: 'No Managed Code'
+              PipeLineModeForWebsite: 'Integrated'
+              AppPoolIdentityForWebsite: 'ApplicationPoolIdentity'
+              AddBinding: true
+              Bindings: |
+                  {
+                      bindings:[
+                          {
+                              "protocol":"http",
+                              "ipAddress":"",
+                              "hostname":"",
+                              "port":"80",
+                              "sslThumbprint":"",
+                              "sniFlag":false
+                          }
+                      ]
+                  }
+
+          - task: IISWebAppDeploymentOnMachineGroup@0
+            inputs:
+              WebSiteName: '$(websiteName)'
+              Package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/$(projectName).zip'
+              JSONFiles: 'appsettings.Production.json'
